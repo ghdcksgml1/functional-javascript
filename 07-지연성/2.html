@@ -1,5 +1,5 @@
-<script src="../fx.js"></script>
-
+<!--<script src="../fx.js"></script>-->
+s
 # 이터러블 중심 프로그래밍에서의 지연 평가 (Lazy Evaluation)
 - 제때 계산법
 - 느긋한 계산법
@@ -8,13 +8,151 @@
 ### L.map
 
 <script>
-
+    let L = {};
+    L.map = function* (f, iter) {
+        for (const a of iter) {
+            yield f(a);
+        }
+    };
+    // let it = L.map(a => a + 10, [1, 2, 3]);
+    // console.log(it.next());
+    // console.log(it.next());
+    // console.log(it.next());
 </script>
 
 ### L.filter
 
 <script>
-
+    L.filter = function* (cond, iter) {
+        for (const a of iter) {
+            if (cond(a)) yield a;
+        }
+    }
+    let it = L.filter(a => a % 2, [1, 2, 3, 4]);
+    console.log(it.next());
+    console.log(it.next());
+    console.log(it.next());
 </script>
 
-### map, filter 계열 함수들이 가지는 결합 법칙
+### range, map, filter, take, reduce 중첩 사용
+
+<script>
+    const curry = f =>
+        (a, ..._) => _.length ? f(a, ..._) : (..._) => f(a, ..._);
+    const range = l => {
+        let i = -1;
+        let res = [];
+        while (++i < l) {
+            res.push(i);
+        }
+        return res;
+    };
+
+    const map = curry((f, iter) => {
+        let res = [];
+        iter = iter[Symbol.iterator]();
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            res.push(f(a));
+        }
+        return res;
+    });
+
+    const filter = curry((f, iter) => {
+        let res = [];
+        iter = iter[Symbol.iterator]();
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            if (f(a)) res.push(a);
+        }
+        return res;
+    });
+
+    const take = curry((l, iter) => {
+        let res = [];
+        iter = iter[Symbol.iterator]();
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            res.push(a);
+            if (res.length === l) return res;
+        }
+        return res;
+    });
+
+    const reduce = curry((f, acc, iter) => {
+        if (!iter) {
+            iter = acc[Symbol.iterator]();
+            acc = iter.next().value;
+        } else {
+            iter = iter[Symbol.iterator]();
+        }
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            acc = f(acc, a);
+        }
+        return acc;
+    });
+
+    const go = (...args) => {
+        return reduce((a, f) => f(a), args);
+    };
+</script>
+
+### L.range, L.map, L.filter, take, reduce 중첩 사용
+
+<script>
+    L.range = function* (l) {
+        let i = -1;
+        while (++i < l) {
+            yield i;
+        }
+    };
+
+    L.map = curry(function* (f, iter) {
+        iter = iter[Symbol.iterator]();
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            yield f(a);
+        }
+    });
+
+    L.filter = curry(function* (f, iter) {
+        iter = iter[Symbol.iterator]();
+        let cur;
+        while (!(cur = iter.next()).done) {
+            const a = cur.value;
+            if (f(a)) {
+                yield a;
+            }
+        }
+    });
+
+    // [0, 1, 2, 3, 4, 5, ...]
+    // [10, 11, 12, ...]
+    // [11, 13, 15, ...]
+    // [11, 13]
+    go(
+        range(10),
+        map(n => n + 10),
+        filter(n => n % 2),
+        take(2),
+        console.log
+    );
+
+    // 0     1
+    // 10    11
+    // false true
+    //       11
+    go(
+        L.range(10),
+        L.map(n => n + 10),
+        L.filter(n => n % 2),
+        take(2),
+        console.log
+    );
+</script>
